@@ -15,21 +15,69 @@ public:
     void reset();
     MoveResult step(int x, int y);
     char checkWinner();
-    bool isTerminal() const;
-    int currentPlayer() const;
-    vector<float> encodeState() const;
-    vector<int> legalMoves() const;
+    vector<float> encodeState();
     
 private:
     char grid[4][4];
     int played_history_x[4][2];
     int played_history_o[4][2];
+    int turnNumber = 0;
     int played_count_x = 0;
     int played_count_o = 0;
+    char marker;
+    int isTerminal = 0;
+    const int maxTurns = 100;
 };
 
 vector<float> Connect4::encodeState() {
     vector<float> state;
+
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j ++) {
+
+            float value = 0.0f;
+            if (grid[i][j] == 'X' && marker == 'X') {
+                //check which order it was played in
+                for (int ip = 0; ip < 4; ip++) {
+                    if (played_history_x[ip][0] == i && played_history_x[ip][1] == j) {
+                        //state.push_back(0.25f + 0.25f*ip);
+                        value = 0.25f + 0.25f*ip;
+                    }
+                }
+            }
+            else if (grid[i][j] == 'X' && marker != 'X') {
+                for (int ip = 0; ip < 4; ip++) {
+                    if (played_history_x[ip][0] == i && played_history_x[ip][1] == j) {
+                        //state.push_back(0.25f + 0.25f*ip);
+                        value = -(0.25f + 0.25f*ip);
+                    }
+                }
+            }
+
+            else if (grid[i][j] == 'O' && marker == 'O') {
+                //check which order it was played in
+                for (int ip = 0; ip < 4; ip++) {
+                    if (played_history_o[ip][0] == i && played_history_o[ip][1] == j) {
+                        //state.push_back(-(0.25f + 0.25f*ip));
+                        value = 0.25f + 0.25f*ip;
+                    }
+                }
+            }
+
+            else if (grid[i][j] == 'O' && marker != 'O') {
+                //check which order it was played in
+                for (int ip = 0; ip < 4; ip++) {
+                    if (played_history_o[ip][0] == i && played_history_o[ip][1] == j) {
+                        //state.push_back(-(0.25f + 0.25f*ip));
+                        value = -(0.25f + 0.25f*ip);
+                    }
+                }
+            }
+
+            state.push_back(value);
+            
+        }
+    }
     
     // X = 1, O = -1, empty = 0
 
@@ -40,14 +88,33 @@ vector<float> Connect4::encodeState() {
 
 MoveResult Connect4::step(int x, int y) {
 
-    MoveResult moveResult;
-    char marker;
+    if (checkWinner() != '-') {
+        isTerminal = 1;
+        return{false, true, false, -1};
+    }
+    
+    else if (turnNumber >= maxTurns && checkWinner() == '-') 
+    {
+        isTerminal = 1;
+        return {false, false, true, -1};
+    }
 
+    MoveResult moveResult;
+    
+    marker = (turnNumber % 2 == 0) ? 'X':'O';
+    
     int row = 3 - y;
     int col = x;
   
-    if (played_count_x % 2) {
-        grid[row][col] = 'X';
+    if (row < 0 || row >= 4 || col < 0 || col >= 4 || grid[row][col]!='-') {
+        //moveResult.validMove = false;
+        return {false, false, false, -1};
+    }
+
+    grid[row][col] = marker;
+
+
+    if (marker == 'X') {
         
         if (played_count_x >= 4) {
             //make first marker disappear
@@ -67,8 +134,6 @@ MoveResult Connect4::step(int x, int y) {
 
     else {
         
-        grid[row][col] = 'O';
-
         if (played_count_o >= 4) {
             grid[played_history_o[0][0]][played_history_o[0][1]] = '-';
         }
@@ -83,19 +148,18 @@ MoveResult Connect4::step(int x, int y) {
         played_count_o++;
 
     }
+    moveResult.validMove = true;
+    turnNumber++;
+    moveResult.win = checkWinner() != '-';
+    bool draw = turnNumber >= maxTurns && checkWinner() == '-';
+    if (draw = true) {
+        isTerminal = 1;
+    }
+    moveResult.draw = draw;
+    moveResult.reward = moveResult.win ? 1 : 0;
 
     return moveResult;
 
-}
-
-void printBoard() {
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            cout << grid[i][j] << " ";
-        }
-        cout << endl;
-    }
-    cout << endl;
 }
 
 char Connect4::checkWinner() {
@@ -117,6 +181,7 @@ char Connect4::checkWinner() {
         }
 
         if (winFlag) {
+            isTerminal = 1;
             return grid[i][0];
         }
     }
@@ -137,6 +202,7 @@ char Connect4::checkWinner() {
         }
 
         if (winFlag) {
+            isTerminal = 1;
             return grid[0][j];
         }
     }
@@ -157,6 +223,7 @@ char Connect4::checkWinner() {
         }
     }
     if (winFlag) {
+        isTerminal = 1;
         return grid[0][0];
     }
 
@@ -176,6 +243,7 @@ char Connect4::checkWinner() {
     }
         
     if (winFlag) {
+        isTerminal = 1;
         return grid[0][3];
     }
     
@@ -184,7 +252,7 @@ char Connect4::checkWinner() {
 
 //Functions to help testing
 
-void reset() {
+void Connect4::reset() {
     for (int i = 0; i < 4; i++) {
         for (int j = 0; j < 4; j++) {
             grid[i][j] = '-';
@@ -195,67 +263,10 @@ void reset() {
             played_history_o[i][j] = 0;
         }
     }
-    
+    turnNumber = 0;
     played_count_x = 0;
     played_count_o = 0;
 
-}
-
-void runTest(const char testName[], bool expected) {
-    bool result = checkWinner();
-
-    cout << testName << ": ";
-
-    if (result == expected) {
-        cout << "PASS";
-    }
-    else {
-        cout << "FAIL";
-    }
-
-    cout << " expected " << expected << ", got " << result << endl;
-}
-
-int countMarker(char marker) {
-    int count = 0;
-
-    for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-            if (grid[i][j] == marker) {
-                count++;
-            }
-        }
-    }
-
-    return count;
-}
-
-void runCellTest(const char testName[], int row, int col, char expected) {
-    char result = grid[row][col];
-
-    cout << testName << ": ";
-
-    if (result == expected) {
-        cout << "PASS";
-    }
-    else {
-        cout << "FAIL";
-    }
-
-    cout << " expected " << expected << ", got " << result << endl;
-}
-
-void runIntTest(const char testName[], int expected, int result) {
-    cout << testName << ": ";
-
-    if (result == expected) {
-        cout << "PASS";
-    }
-    else {
-        cout << "FAIL";
-    }
-
-    cout << " expected " << expected << ", got " << result << endl;
 }
 
 int main() {
