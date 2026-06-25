@@ -25,7 +25,10 @@ PYBIND11_MODULE(connect4memory_MLP, m) {
     .def("currentPlayer", &Connect4::currentPlayer)
     .def("legalMoves", &Connect4::legalMoves)
     .def("isGameOver", &Connect4::isGameOver)
-    .def("stepAction", &Connect4::stepAction);
+    .def("stepAction", &Connect4::stepAction)
+    .def("getTurnNumber", &Connect4::getTurnNumber)
+    .def("getGrid", &Connect4::getGrid);
+
 }
 
 
@@ -67,6 +70,21 @@ int Connect4::isGameOver() {
     else {
         return 0;
     }
+}
+
+vector<char> Connect4::getGrid() {
+    vector<char> gridvector;
+    for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 4; j ++) {
+            gridvector.push_back(grid[i][j]);
+        }
+    }
+
+    return gridvector;
+}
+
+int Connect4::getTurnNumber() {
+    return turnNumber;
 }
 
 vector<float> Connect4::encodeState() {

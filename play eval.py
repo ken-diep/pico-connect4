@@ -3,6 +3,7 @@ import torch.nn as nn
 import os
 os.add_dll_directory(r"C:\mingw64\bin")   # before import, Py3.8+
 import connect4memory_MLP as c4
+import random
 from visualizer import Visualizer
 
 #declarations
@@ -37,7 +38,7 @@ class Connect4NN(nn.Module):
                     history[index][3] = 1 #return for winning move
                 else:
                     history[index][3] = -1
-        
+
         return history
 
     def backward(self, history):        
@@ -106,13 +107,44 @@ def viz_reset(viz):
     game.reset()
     torch.save(net.state_dict(), f"connect4_gp{games_played}.pt")
 
+def greedy_move(net, game):
+    state = net.state_to_tensor(game.encodeState())
+    with torch.no_grad():                      # no grad in eval
+        logits = net.forward(state)
+    moves = game.legalMoves()
+    mask = torch.full((16,), float('-inf'))
+    mask[moves] = 0.0                          # legal = 0, illegal = -inf
+    masked = logits + mask
+    return int(masked.argmax().item())         # best legal move
+
+def eval_vs_random(net, n=100, net_plays='X'):
+    net.eval()
+    wins = draws = losses = 0
+    g = c4.Connect4()                          # own game, don't touch training game
+    for _ in range(n):
+        g.reset()
+        while not g.isGameOver():
+            if g.currentPlayer() == net_plays:
+                mv = greedy_move(net, g)
+            else:
+                mv = random.choice(g.legalMoves())
+            g.stepAction(mv)
+        w = g.checkWinner()
+        if w == net_plays:        wins += 1
+        elif w in ("X", "O"):     losses += 1
+        else:                     draws += 1
+    net.train()                                # back to train mode
+    return wins / n, draws / n, losses / n
+
+
 game = c4.Connect4()
 game.reset()
 #res = game.stepAction(4)
 #print(res.win, res.draw, res.reward)   # MoveResult fields
 net = Connect4NN()
 net.load_state_dict(torch.load("connect4_gp714.pt"))
-net.eval()
+win, draw, loss = eval_vs_random(net, 200)
+print(f"win={win:.2f} draw={draw:.2f} loss={loss:.2f}")
 
 #viz = Visualizer(size=4, on_step=step, on_reset=viz_reset)
 #viz.run()    

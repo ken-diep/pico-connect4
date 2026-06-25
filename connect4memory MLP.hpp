@@ -20,6 +20,8 @@ public:
     vector<int> legalMoves();
     int isGameOver();
     MoveResult stepAction(int action);
+    vector<char> getGrid();
+    int getTurnNumber();
     
 private:
     char grid[4][4];
